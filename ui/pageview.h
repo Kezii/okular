@@ -226,6 +226,8 @@ Q_OBJECT
         void slotAutoScroll();
         // activated by the dragScroll timer
         void slotDragScroll();
+        // activated by the mouseBrowse timer when scrolling with the mouse
+        void slotMouseBrowse();
         // show the welcome message
         void slotShowWelcome();
         // activated by left click timer

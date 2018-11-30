@@ -202,6 +202,10 @@ public:
     QPoint dragScrollVector;
     QTimer dragScrollTimer;
 
+    // timer and vector for latency-free scolling
+    QPoint mouseBrowseVector;
+    QTimer mouseBrowseTimer;
+
     // left click depress
     QTimer leftClickTimer;
 
@@ -417,6 +421,8 @@ PageView::PageView( QWidget *parent, Okular::Document *document )
     connect(horizontalScrollBar(), &QAbstractSlider::valueChanged, this, &PageView::slotRequestVisiblePixmaps);
     connect(verticalScrollBar(), &QAbstractSlider::valueChanged, this, &PageView::slotRequestVisiblePixmaps);
     connect( &d->dragScrollTimer, &QTimer::timeout, this, &PageView::slotDragScroll );
+    connect( &d->mouseBrowseTimer, &QTimer::timeout, this, &PageView::slotMouseBrowse );
+    d->mouseBrowseTimer.setInterval(1000/60);
 
     d->leftClickTimer.setSingleShot( true );
     connect( &d->leftClickTimer, &QTimer::timeout, this, &PageView::slotShowSizeAllCursor );
@@ -2187,7 +2193,8 @@ void PageView::mouseMoveEvent( QMouseEvent * e )
                     d->mouseGrabPos = mousePos;
 
                     // scroll page by position increment
-                    scrollTo( horizontalScrollBar()->value() + delta.x(), verticalScrollBar()->value() + delta.y() );
+                    // add position increment to the total delta, to be updated by the timer
+                    d->mouseBrowseVector+=delta;
                 }
             }
             else if ( rightButton && !d->mousePressPos.isNull() && d->aMouseSelect )
@@ -2313,6 +2320,7 @@ void PageView::mousePressEvent( QMouseEvent * e )
             PageViewItem * pageItem = pickItemOnPoint( eventPos.x(), eventPos.y() );
             if ( leftButton )
             {
+                d->mouseBrowseTimer.start();
                 if ( pageItem )
                 {
                     d->mouseAnnotation->routeMousePressEvent( pageItem, eventPos );
@@ -2473,6 +2481,9 @@ void PageView::mouseReleaseEvent( QMouseEvent * e )
 
     // stop the drag scrolling
     d->dragScrollTimer.stop();
+
+    d->mouseBrowseTimer.stop();
+    slotMouseBrowse();
 
     d->leftClickTimer.stop();
 
@@ -4945,6 +4956,15 @@ void PageView::slotDragScroll()
     scrollTo( horizontalScrollBar()->value() + d->dragScrollVector.x(), verticalScrollBar()->value() + d->dragScrollVector.y() );
     QPoint p = contentAreaPosition() + viewport()->mapFromGlobal( QCursor::pos() );
     updateSelection( p );
+}
+
+void PageView::slotMouseBrowse()
+{
+    if(d->mouseBrowseVector == QPoint(0,0))
+        return;
+
+    scrollTo( horizontalScrollBar()->value() + d->mouseBrowseVector.x(), verticalScrollBar()->value() + d->mouseBrowseVector.y() );
+    d->mouseBrowseVector={0,0};
 }
 
 void PageView::slotShowWelcome()
